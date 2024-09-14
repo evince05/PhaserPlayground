@@ -49,6 +49,16 @@
         });
     }
 
+    var score = 0;
+    var scoreText;
+    var gameOver;
+
+    /*
+     note that we normally have to declare the variables as 'var name = ...'
+     here, we don't because it finds them from later parts of the tutorial.
+     */
+    var bombs;
+
     function create ()
     {
         /*
@@ -70,7 +80,9 @@
         platforms.create(750, 220, "ground");
 
         // this.add loads a GameObject
-        this.add.image(400, 300, "star");
+        //this.add.image(400, 300, "star");
+
+        scoreText = this.add.text(16, 16, 'score: 0', {fontSize: '32px', fill: '#000'});
 
         // dynamic body by default
         player = this.physics.add.sprite(100, 450, "dude");
@@ -114,10 +126,33 @@
 
         // Adds input (cursor/arrow keys)
         cursors = this.input.keyboard.createCursorKeys();
+
+        stars = this.physics.add.group({
+            key: 'star', // texture key
+            repeat: 11, // repeats 11 times, so we get 12 total
+            setXY: {x: 12, y: 0, stepX: 70}
+        });
+
+        stars.children.iterate(function(child) {
+            child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+        });
+
+        // prevents the stars from falling through the screen
+        this.physics.add.collider(stars, platforms);
+
+        this.physics.add.overlap(player, stars, collectStar, null, this);
+
+        bombs = this.physics.add.group();
+        this.physics.add.collider(bombs, platforms);
+        this.physics.add.collider(player, bombs, hitBomb, null, this);
     }
 
     function update ()
     {
+        if (gameOver) {
+            return;
+        }
+
         // poll update
         if (cursors.left.isDown) {
             player.setVelocityX(-160);
@@ -134,9 +169,43 @@
 
         if (cursors.up.isDown && player.body.touching.down){
 
-            // player.body.touching.down checks if the player is touching something below them?
+            // player.body.touching.down checks if the player is touching something below them
             player.setVelocityY(-330);
         }
+    }
+
+    function collectStar(player, star) {
+        // disables the physics body and hides the game object
+        star.disableBody(true, true);
+
+        score += 10;
+        scoreText.setText('score: ' + score);
+
+        // spawn a bomb if there are no stars left
+        if (stars.countActive(true) === 0) {
+
+            stars.children.iterate((child) => {
+
+                // restores the body to avoid recreating them
+                child.enableBody(true, child.x, 0, true, true);
+            });
+
+            // spawns a bomb on the opposite side of the screen from the player
+            let x = (player.x < 400 ? Phaser.Math.Between(400, 800) : Phaser.Math.Between(0, 400));
+
+            let bomb = bombs.create(x, 16, 'bomb');
+            bomb.setBounce(1);
+            bomb.setCollideWorldBounds(true);
+            bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
+        }
+    }
+
+    function hitBomb(player, bomb){
+        this.physics.pause();
+
+        player.setTint(0xFF0000);
+        player.anims.play('turn');
+        gameOver = true;
     }
 
 </script>
